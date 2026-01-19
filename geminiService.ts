@@ -3,26 +3,30 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { UserPreferences, RecommendedRoute } from "./types";
 
 export const generateYeosuRoute = async (prefs: UserPreferences): Promise<RecommendedRoute> => {
+  // 최신 GoogleGenAI 인스턴스 생성
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const systemInstruction = `당신은 전남 여행 전문 AI입니다. 
-  사용자 취향(${prefs.style})에 맞춰 전남 도시 중 한 곳을 선정하고 코스를 짭니다.
-  속도를 위해 답변은 매우 간결하게 JSON으로만 합니다.
-  - travelTimeFromPrevious: "차량 15분" 또는 "도보 5분" 형태
-  - alternativeSpot: 해당 날짜 테마와 어울리는 대안 장소 1개 추가
-  - naverLink: https://search.naver.com/search.naver?query=장소명`;
+  const systemInstruction = `당신은 대한민국 전라남도 여행 전문가입니다. 
+  사용자의 취향(${prefs.style})과 일정(${prefs.duration}일)에 맞춰 '여수, 순천, 목포, 담양' 중 가장 적합한 도시 한 곳을 선정하세요.
+  응답은 반드시 JSON이어야 하며, 다음을 포함해야 합니다:
+  1. 각 장소 간 예상 이동 시간 (예: "차량 10분")
+  2. 각 날짜별 테마와 어울리는 '대안 장소(alternativeSpot)' 1개
+  3. 모든 장소는 네이버 지도 검색 링크(naverLink)를 포함할 것.
+  사용자의 시간을 아끼기 위해 매우 빠르고 간결하게 핵심 정보 위주로 생성하세요.`;
 
-  const prompt = `Style:${prefs.style}, Days:${prefs.duration}. Create a high-density travel report with travel times and 1 alternative per day. Optimize for output speed.`;
+  const prompt = `Style: ${prefs.style}, Duration: ${prefs.duration} days. 
+  Pick the best Jeonnam city. Generate a daily itinerary with travel times and 1 alternative spot per day.
+  Ensure coordinates (lat, lng) are accurate for the selected city.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-flash-preview", // 초고속 모델 사용
       contents: prompt,
       config: {
         systemInstruction,
-        temperature: 0, // 속도와 일관성을 위해 0으로 설정
+        temperature: 0.2, // 속도와 창의성의 균형
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
+        thinkingConfig: { thinkingBudget: 0 }, // 생각 단계 생략으로 응답 속도 극대화
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -30,6 +34,7 @@ export const generateYeosuRoute = async (prefs: UserPreferences): Promise<Recomm
             summary: { type: Type.STRING },
             selectedCity: { type: Type.STRING },
             trendingScore: { type: Type.NUMBER },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING } },
             days: {
               type: Type.ARRAY,
               items: {
@@ -72,9 +77,10 @@ export const generateYeosuRoute = async (prefs: UserPreferences): Promise<Recomm
       }
     });
 
-    return JSON.parse(response.text || "{}");
+    const result = JSON.parse(response.text || "{}");
+    return result;
   } catch (e) {
-    console.error("Gemini Speed Mode Error:", e);
-    throw new Error("분석 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    console.error("AI Generation Error:", e);
+    throw new Error("분석 서버가 혼잡합니다. 잠시 후 다시 시도해주세요.");
   }
 };
