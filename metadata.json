@@ -1,0 +1,7 @@
+{
+  "name": "Yeosu-Stay: Live Like a Local",
+  "description": "A smart travel planner for month-long stays in Yeosu, analyzing the latest YouTube vlog trends to provide personalized itineraries.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
