@@ -3,30 +3,30 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { UserPreferences, RecommendedRoute } from "./types";
 
 export const generateYeosuRoute = async (prefs: UserPreferences): Promise<RecommendedRoute> => {
-  // 최신 GoogleGenAI 인스턴스 생성
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const systemInstruction = `당신은 대한민국 전라남도 여행 전문가입니다. 
-  사용자의 취향(${prefs.style})과 일정(${prefs.duration}일)에 맞춰 '여수, 순천, 목포, 담양' 중 가장 적합한 도시 한 곳을 선정하세요.
-  응답은 반드시 JSON이어야 하며, 다음을 포함해야 합니다:
-  1. 각 장소 간 예상 이동 시간 (예: "차량 10분")
-  2. 각 날짜별 테마와 어울리는 '대안 장소(alternativeSpot)' 1개
-  3. 모든 장소는 네이버 지도 검색 링크(naverLink)를 포함할 것.
-  사용자의 시간을 아끼기 위해 매우 빠르고 간결하게 핵심 정보 위주로 생성하세요.`;
+  const systemInstruction = `당신은 전라남도(여수, 순천, 목포, 담양) 여행 전문 AI입니다.
+  최근 10개의 유튜브 브이로그에서 가장 핫한 장소들을 분석하여 사용자 취향(${prefs.style})에 맞는 여행을 설계하세요.
+  
+  필수 포함 사항:
+  1. 각 장소 사이의 예상 이동 시간 (travelTimeFromPrevious).
+  2. 각 날짜 하단에 해당 테마와 어울리는 대안 장소 (alternativeSpot) 1개.
+  3. 리포트 요약 처음에 "최신 브이로그 10건을 분석한 결과..."라는 문구 포함.
+  4. 답변은 반드시 유효한 JSON 형식이어야 하며, 속도를 위해 매우 간결하고 명확하게 작성하세요.`;
 
   const prompt = `Style: ${prefs.style}, Duration: ${prefs.duration} days. 
-  Pick the best Jeonnam city. Generate a daily itinerary with travel times and 1 alternative spot per day.
-  Ensure coordinates (lat, lng) are accurate for the selected city.`;
+  여수 또는 주변 전남 도시를 선정해 최신 트렌드가 반영된 동선을 짜주세요. 
+  이동 시간과 대안 스팟을 포함한 고밀도 리포트가 필요합니다.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // 초고속 모델 사용
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         systemInstruction,
-        temperature: 0.2, // 속도와 창의성의 균형
+        temperature: 0.1,
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 }, // 생각 단계 생략으로 응답 속도 극대화
+        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -77,10 +77,9 @@ export const generateYeosuRoute = async (prefs: UserPreferences): Promise<Recomm
       }
     });
 
-    const result = JSON.parse(response.text || "{}");
-    return result;
+    return JSON.parse(response.text || "{}");
   } catch (e) {
-    console.error("AI Generation Error:", e);
-    throw new Error("분석 서버가 혼잡합니다. 잠시 후 다시 시도해주세요.");
+    console.error("AI Logic Error:", e);
+    throw new Error("분석 서버가 응답하지 않습니다. 잠시 후 다시 시도해주세요.");
   }
 };
